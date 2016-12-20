@@ -41,12 +41,24 @@
             var height = 600;
             var speed = -4e-2;
             var start = Date.now();
+            var currentScale = 4;
+            var angle = -15;
+            var offset = 0;
+
+            var zoom = d3.behavior.zoom()
+                .scaleExtent([0, 5])
+                .on("zoom", function() {
+                    var scale = Math.exp(5 - d3.event.scale)/150;
+                    angle =  (- 15 - d3.event.translate[1] / 4) % 180;
+                    offset = d3.event.translate[0] / 4;
+                    currentScale = 11 * scale;
+                });
 
             //var projection = d3.geo.mercator()
             var projection = d3.geo.orthographic()
                 .translate([width / 2, height / 2])
                 .precision(.5)
-                .scale(width / 4)
+                .scale(width / currentScale)
                 .clipAngle(90);
             
             var canvasGlobe = d3.select("div#map").append("canvas")
@@ -57,7 +69,7 @@
                 .attr("height", height);
             var canvasCountry = d3.select("div#map").append("canvas")
                 .attr("width", width)
-                .attr("height", height);
+                .attr("height", height).call(zoom);
             
             var contextGlobe = canvasGlobe.node().getContext("2d");
             var contextLand = canvasLand.node().getContext("2d");
@@ -111,12 +123,12 @@
                 });
                 
                 d3.timer(function() {
-                    projection.rotate([speed * (Date.now() - start), -15]);
+                    projection.rotate([offset + speed * (Date.now() - start), angle]);
                     contextGlobe.clearRect(0, 0, width, height);
                     contextLand.clearRect(0, 0, width, height);
                     contextCountry.clearRect(0, 0, width, height);
 
-                    projection.scale(width/4);
+                    projection.scale(width/currentScale);
                     
                     contextGlobe.fillStyle = '#81BEF7';
                     contextGlobe.beginPath();
@@ -129,7 +141,7 @@
                     contextGlobe.lineWidth = .5;
                     contextGlobe.stroke();
 
-                    projection.scale(width/3.9);
+                    projection.scale(width/(currentScale * 0.975));
                     
                     contextLand.fillStyle = "#737368";
                     contextLand.beginPath();
@@ -137,7 +149,7 @@
                     contextLand.fill();
                     contextLand.stroke();
 
-                    projection.scale(width/3.8);
+                    projection.scale(width/(currentScale * 0.95));
                     
                     contextCountry.fillStyle = "#FF8000";
                     contextCountry.beginPath();
