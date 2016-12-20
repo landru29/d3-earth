@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>D3 World Map</title>
+    <style>
+      path {
+        stroke: white;
+        stroke-width: 0.5px;
+        fill: black;
+      }
+
+      div#map {
+          position: relative;
+      }
+
+      div#map canvas {
+        position: absolute;
+        top: 25px;
+        left: 0;
+        }
+
+      .foreground {
+        fill: #d8ffff;
+        stroke: #333;
+        stroke-width: 1.5px;
+        }
+    </style>
+<script src="http://d3js.org/d3.v3.min.js"></script>
+<script src="//d3js.org/queue.v1.min.js"></script>
+<script src="http://d3js.org/topojson.v1.min.js"></script>
+</head>
+
+    <body>
+        <h1>Country highlight</h1>
+        <div id="country-list"></div>
+        <div id="map"></div>
+        <script type="text/javascript">
+            var width = 900;
+            var height = 600;
+            var speed = -4e-2;
+            var start = Date.now();
+
+            //var projection = d3.geo.mercator()
+            var projection = d3.geo.orthographic()
+                .translate([width / 2, height / 2])
+                .precision(.5)
+                .scale(width / 4)
+                .clipAngle(90);
+            
+            var canvasGlobe = d3.select("div#map").append("canvas")
+                .attr("width", width)
+                .attr("height", height);
+            var canvasLand = d3.select("div#map").append("canvas")
+                .attr("width", width)
+                .attr("height", height);
+            var canvasCountry = d3.select("div#map").append("canvas")
+                .attr("width", width)
+                .attr("height", height);
+            
+            var contextGlobe = canvasGlobe.node().getContext("2d");
+            var contextLand = canvasLand.node().getContext("2d");
+            var contextCountry = canvasCountry.node().getContext("2d");
+
+            var path = d3.geo.path()
+                .projection(projection);
+            
+            var graticule = d3.geo.graticule();
+            var grid = graticule();
+
+            var globe = {
+                type: "Sphere"
+            };
+
+            queue()
+                .defer(d3.json, "world-110m.json")
+                .defer(d3.tsv, "world-country-names.tsv")
+                .await(ready);
+
+            function ready (error, topology, names) {
+                var land = topojson.feature(topology, topology.objects.land);
+                var countries = topojson.feature(topology, topology.objects.countries).features;
+
+                countries = countries.filter(function(d) {
+                    return names.some(function(n) {
+                    if (d.id == n.id) return d.name = n.name;
+                    });
+                }).sort(function(a, b) {
+                    return a.name.localeCompare(b.name);
+                });
+
+                var select = d3.select("div#country-list")
+                    .append("select")
+                        .attr("class", "select")
+                        .on('change', function() {
+                            var name = d3.select("select").property("value")
+                            country = countries.find(function (elt) {
+                                return elt.name === name;
+                            });
+                        })
+
+                var options = select
+                    .selectAll("option")
+                    .data(countries).enter()
+                    .append("option")
+                        .text(function (d) { return d.name; });
+
+                var country = countries.find(function (elt) {
+                    return elt.name === d3.select("select").property("value");
+                });
+                
+                d3.timer(function() {
+                    projection.rotate([speed * (Date.now() - start), -15]);
+                    contextGlobe.clearRect(0, 0, width, height);
+                    contextLand.clearRect(0, 0, width, height);
+                    contextCountry.clearRect(0, 0, width, height);
+
+                    projection.scale(width/4);
+                    
+                    contextGlobe.fillStyle = '#81BEF7';
+                    contextGlobe.beginPath();
+                    path.context(contextGlobe)(globe);
+                    contextGlobe.fill();
+                    contextGlobe.stroke();
+
+                    contextGlobe.beginPath();
+                    path.context(contextGlobe)(grid);
+                    contextGlobe.lineWidth = .5;
+                    contextGlobe.stroke();
+
+                    projection.scale(width/3.9);
+                    
+                    contextLand.fillStyle = "#737368";
+                    contextLand.beginPath();
+                    path.context(contextLand)(land);
+                    contextLand.fill();
+                    contextLand.stroke();
+
+                    projection.scale(width/3.8);
+                    
+                    contextCountry.fillStyle = "#FF8000";
+                    contextCountry.beginPath();
+                    path.context(contextCountry)(country);
+                    contextCountry.fill();
+                    contextCountry.stroke();
+                });
+            }
+
+            
+
+        </script>
+    </body>
+
+</html>
